@@ -28,21 +28,15 @@
 
 ############################################################################
 
-# jdk_build
-
-############################################################################
-
 # jdk_compiler
 
 ############################################################################
 
 # jdk_lang
-java/lang/ProcessBuilder/PipelineTest.java https://github.com/adoptium/aqa-tests/issues/4155 windows-aarch64
 
 ############################################################################
 
 # jdk_management
-java/lang/management/MemoryMXBean/LowMemoryTest2.sh https://github.com/adoptium/aqa-tests/issues/5022 macosx-x64,linux-all
 
 ############################################################################
 
@@ -55,6 +49,9 @@ java/lang/management/MemoryMXBean/LowMemoryTest2.sh https://github.com/adoptium/
 ############################################################################
 
 # jdk_net
+
+java/net/Inet6Address/B6206527.java https://github.com/adoptium/infrastructure/issues/3614 linux-all
+java/net/ipv6tests/B6521014.java https://github.com/adoptium/infrastructure/issues/3614 linux-all
 
 ############################################################################
 
@@ -70,7 +67,11 @@ java/lang/management/MemoryMXBean/LowMemoryTest2.sh https://github.com/adoptium/
 
 ############################################################################
 
-# jdk_security
+# jdk_security1
+
+############################################################################
+
+# jdk_security2
 
 ############################################################################
 
@@ -95,7 +96,6 @@ java/lang/management/MemoryMXBean/LowMemoryTest2.sh https://github.com/adoptium/
 ############################################################################
 
 # jdk_tools
-tools/jlink/plugins/VendorInfoPluginsTest.java https://github.com/adoptium/aqa-tests/issues/4155 windows-aarch64
 
 ############################################################################
 
@@ -113,7 +113,6 @@ tools/jlink/plugins/VendorInfoPluginsTest.java https://github.com/adoptium/aqa-t
 
 # jdk_other
 
-
 ############################################################################
 
 # jdk_imageio
@@ -121,5 +120,3 @@ tools/jlink/plugins/VendorInfoPluginsTest.java https://github.com/adoptium/aqa-t
 ############################################################################
 
 # jdk_jfr
-jdk/jfr/jvm/TestDumpOnCrash.java https://github.com/adoptium/aqa-tests/issues/4155 windows-aarch64
-

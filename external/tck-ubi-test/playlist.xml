@@ -14,31 +14,25 @@
 -->
 <playlist xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../TKG/resources/playlist.xsd">
 	<test>
-		<testCaseName>openJcePlusTests</testCaseName>
+		<testCaseName>tck-ubi-test</testCaseName>
+		<command> $(TEST_ROOT)$(D)external$(D)external.sh --run --tag "${DOCKERIMAGE_TAG}" --dir tck-ubi-test --testtarget "_testList TESTLIST=jck-runtime-api-javax_annotation" --reportdst $(REPORTDIR) --docker_args "$(EXTRA_DOCKER_ARGS) -v ${BUILD_ROOT}/external/tck-ubi-test/jck_root/JCK${JDK_VERSION}-unzipped:/opt/jck_root/unzipped -v $(TEST_ROOT):/opt/test_root"; \
+		$(TEST_STATUS); \
+		$(TEST_ROOT)$(D)external$(D)external.sh --clean --tag "${DOCKERIMAGE_TAG}" --dir tck-ubi-test
+		</command>
 		<disables>
 			<disable>
-				<comment>only applicable for Semeru atm</comment>
-				<vendor>eclipse</vendor>
-			</disable>
-			<disable>
-				<comment>Only applicable on aix, pliunx, xlinux, wins64 and zlinux atm</comment>
-				<platform>^((?!(ppc64_aix|ppc64le_linux|x86-64_linux|x86-64_windows|s390x_linux)).)*$</platform>
+				<comment>Only applicable on xlinux, plinux, alinux, and zlinux atm</comment>
+				<platform>^((?!(x86-64_linux|ppc64le_linux|aarch64_linux|s390x_linux)).)*$</platform>
 			</disable>
 		</disables>
-		<command>cp -r ${TEST_RESROOT}/* ${REPORTDIR}/. ; \
-		ant -f test.xml -DTEST_JAVA=$(Q)$(JAVA_COMMAND)$(Q) launch_test; \
-	$(TEST_STATUS)</command>
-		<levels>
-			<level>extended</level>
-		</levels>
-		<groups>
-			<group>functional</group>
-		</groups>
-		<versions>
-			<version>11+</version>
-		</versions>
 		<impls>
 			<impl>openj9</impl>
 		</impls>
+		<levels>
+			<level>special</level>
+		</levels>
+		<groups>
+			<group>external</group>
+		</groups>
 	</test>
 </playlist>

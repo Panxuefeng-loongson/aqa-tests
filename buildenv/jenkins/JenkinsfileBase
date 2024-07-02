@@ -40,7 +40,7 @@ def setupEnv() {
 	env.JOBSTARTTIME = sh(script: 'LC_TIME=C date +"%a, %d %b %Y %T %z"', returnStdout: true).trim()
 
 	// Terminate any previous test related processes that are running
-        terminateTestProcesses()
+	terminateTestProcesses()
 
 	if ( params.JDK_VERSION ) {
 		env.ORIGIN_JDK_VERSION = params.JDK_VERSION
@@ -50,7 +50,7 @@ def setupEnv() {
 
 	env.SPEC = "${SPEC}"
 	if(!params.USE_TESTENV_PROPERTIES){
-		ADOPTOPENJDK_REPO = params.ADOPTOPENJDK_REPO ? params.ADOPTOPENJDK_REPO : "https://github.com/adoptium/aqa-tests.git"
+		env.ADOPTOPENJDK_REPO = params.ADOPTOPENJDK_REPO ? params.ADOPTOPENJDK_REPO : "https://github.com/adoptium/aqa-tests.git"
 		OPENJ9_REPO = params.OPENJ9_REPO ? params.OPENJ9_REPO : "https://github.com/eclipse-openj9/openj9.git"
 		String[] tkg = getGitRepoBranch(params.TKG_OWNER_BRANCH, "adoptium:master", "TKG")
 		TKG_REPO = tkg[0]
@@ -58,14 +58,14 @@ def setupEnv() {
 		//For Zos, the right repo should be something like: git@github.ibm.com:runtimes/openj9-openjdk-jdk**-zos.git and for now there is only jdk11
 		env.JDK_REPO = params.JDK_REPO ? params.JDK_REPO : ""
 		if (env.SPEC.startsWith('zos')) {
-			ADOPTOPENJDK_REPO = ADOPTOPENJDK_REPO.replace("https://github.com/","git@github.com:")
+			env.ADOPTOPENJDK_REPO = env.ADOPTOPENJDK_REPO.replace("https://github.com/","git@github.com:")
 			OPENJ9_REPO = OPENJ9_REPO.replace("https://github.com/","git@github.com:")
 		}
 		OPENJ9_BRANCH = params.OPENJ9_BRANCH ? params.OPENJ9_BRANCH : "master"
 	}
 
 	PLATFORM = params.PLATFORM ? params.PLATFORM : ""
-	ADOPTOPENJDK_BRANCH = params.ADOPTOPENJDK_BRANCH ? params.ADOPTOPENJDK_BRANCH : "master"
+	env.ADOPTOPENJDK_BRANCH = params.ADOPTOPENJDK_BRANCH ? params.ADOPTOPENJDK_BRANCH : "master"
 	CLONE_OPENJ9 = params.CLONE_OPENJ9 ? params.CLONE_OPENJ9 : "true"
 	CUSTOM_TARGET = params.CUSTOM_TARGET ? params.CUSTOM_TARGET : ""
 	UPSTREAM_JOB_NAME = params.UPSTREAM_JOB_NAME ? params.UPSTREAM_JOB_NAME : ""
@@ -106,11 +106,13 @@ def setupEnv() {
 	env.EXIT_SUCCESS = params.EXIT_SUCCESS ? params.EXIT_SUCCESS : false
 	NUM_MACHINES = params.NUM_MACHINES ? params.NUM_MACHINES.toInteger() : 1
 	env.LIB_DIR = JOB_NAME.contains("SmokeTests") ? "${WORKSPACE}/../../../../../testDependency/lib" : "${WORKSPACE}/../../testDependency/lib"
+	env.SYSTEM_LIB_DIR = JOB_NAME.contains("SmokeTests") ? "${WORKSPACE}/../../../../../testDependency/system_lib" : "${WORKSPACE}/../../testDependency/system_lib"
 	env.OPENJCEPLUS_GIT_REPO = params.OPENJCEPLUS_GIT_REPO ?: "https://github.com/ibmruntimes/OpenJCEPlus.git"
 	env.OPENJCEPLUS_GIT_BRANCH = params.OPENJCEPLUS_GIT_BRANCH ?: "semeru-java${params.JDK_VERSION}"
 
 	env.LIGHT_WEIGHT_CHECKOUT = (params.LIGHT_WEIGHT_CHECKOUT == false) ? params.LIGHT_WEIGHT_CHECKOUT : true
 	env.GENERATE_JOBS = params.GENERATE_JOBS ?: false
+	env.isSVTTestRepo=false
 
 	if (JOB_NAME.contains("Grinder")) {
 		def currentDate = new Date()
@@ -120,7 +122,7 @@ def setupEnv() {
 		// to take personal repo and branch.
 		// Therefore, set LIGHT_WEIGHT_CHECKOUTto false and GENERATE_JOBS to true.
 		// This is a known Jenkins issue: https://issues.jenkins.io/browse/JENKINS-42971
-		if (!ADOPTOPENJDK_REPO.contains("adoptium/aqa-tests")) {
+		if (!env.ADOPTOPENJDK_REPO.contains("adoptium/aqa-tests")) {
 			env.LIGHT_WEIGHT_CHECKOUT = false
 			env.GENERATE_JOBS = true
 			echo "ADOPTOPENJDK_REPO is set to personal repo in Grinder. Auto-set LIGHT_WEIGHT_CHECKOUT: ${env.LIGHT_WEIGHT_CHECKOUT} and GENERATE_JOBS: ${env.GENERATE_JOBS}"
@@ -208,9 +210,13 @@ def setupParallelEnv() {
 				// check for each lib. If lib does not exist, donwload it.
 				// If lib exists, SHA will be checked. Re-download if SHA does not match.
 				timeout(time: 20, unit: 'MINUTES') {
-					def customUrl = "https://ci.adoptium.net/job/test.getDependency/lastSuccessfulBuild/artifact/"
+					def customUrl = getCustomUrl()
 					if (PLATFORM.contains("windows")) {
 						env.LIB_DIR = env.LIB_DIR.replaceAll("\\\\", "/")
+						env.SYSTEM_LIB_DIR = env.SYSTEM_LIB_DIR.replaceAll("\\\\", "/")
+					}
+					if (env.BUILD_LIST == 'system') {
+						env.LIB_DIR = env.SYSTEM_LIB_DIR
 					}
 					sh "perl ./aqa-tests/TKG/scripts/getDependencies.pl -path ${env.LIB_DIR} -task default -customUrl ${customUrl}"
 				}
@@ -316,7 +322,7 @@ def setupParallelEnv() {
 
 }
 
-// Returns NUM_LIST from parallelList.mk. 
+// Returns NUM_LIST from parallelList.mk.
 // NUM_LIST can be different than numOfMachines.
 def genParallelList(PARALLEL_OPTIONS) {
 	String unsetLLP = ""
@@ -416,7 +422,7 @@ def setup() {
 			if (params.SDK_RESOURCE == 'nightly') {
 				// remove single quote to allow variables to be set in CUSTOMIZED_SDK_URL
 				CUSTOMIZED_SDK_URL_OPTION = "-c ${params.CUSTOMIZED_SDK_URL}"
-			} else if (!params.SDK_RESOURCE || params.SDK_RESOURCE == 'customized') { 
+			} else if (!params.SDK_RESOURCE || params.SDK_RESOURCE == 'customized') {
 				SDK_RESOURCE = "customized"
 				CUSTOMIZED_SDK_URL_OPTION = "-c '${params.CUSTOMIZED_SDK_URL}'"
 				if (params.ADDITIONAL_ARTIFACTS_REQUIRED == "RI_JDK") {
@@ -438,7 +444,7 @@ def setup() {
 				error("SDK_RESOURCE: ${params.SDK_RESOURCE} and CUSTOMIZED_SDK_URL: ${params.CUSTOMIZED_SDK_URL} combo is not supported!")
 			}
 		} else {
-			if (params.SDK_RESOURCE == 'customized') { 
+			if (params.SDK_RESOURCE == 'customized') {
 				error("SDK_RESOURCE: ${params.SDK_RESOURCE}, please provide CUSTOMIZED_SDK_URL")
 			} else {
 				CUSTOMIZED_SDK_URL_OPTION = ""
@@ -467,7 +473,7 @@ def setup() {
 		if (CLONE_OPENJ9_OPTION == "") {
 			if (env.BUILD_LIST.contains('functional')) {
 				CLONE_OPENJ9_OPTION = "--clone_openj9 true"
-				// If USE_TESTENV_PROPERTIES = false, set Openj9 repo and brnach. 
+				// If USE_TESTENV_PROPERTIES = false, set Openj9 repo and brnach.
 				// Otherwise, testenv.properties will be used.
 				// And the Openj9 repo and brnach values will be set in get.sh
 				if(!params.USE_TESTENV_PROPERTIES) {
@@ -652,32 +658,24 @@ def buildTest() {
 		}
 
 		try {
-			// check pre-stage test libs on the machine
-			// check for each lib. If lib does not exist, donwload it.
-			// If lib exists, SHA will be checked. Re-download if SHA does not match.
-			timeout(time: 20, unit: 'MINUTES') {
-				def customUrl = "https://ci.adoptium.net/job/test.getDependency/lastSuccessfulBuild/artifact/"
-				if (PLATFORM.contains("windows")) {
-					env.LIB_DIR = env.LIB_DIR.replaceAll("\\\\", "/")
+				// check pre-stage test libs on the machine
+				// check for each lib. If lib does not exist, donwload it.
+				// If lib exists, SHA will be checked. Re-download if SHA does not match.
+				timeout(time: 20, unit: 'MINUTES') {
+					def customUrl = getCustomUrl()
+					if (PLATFORM.contains("windows")) {
+						env.LIB_DIR = env.LIB_DIR.replaceAll("\\\\", "/")
+						env.SYSTEM_LIB_DIR = env.SYSTEM_LIB_DIR.replaceAll("\\\\", "/")
+					}
+					if (env.BUILD_LIST == 'system') {
+						env.LIB_DIR = env.SYSTEM_LIB_DIR
+					}
+					sh "perl ./aqa-tests/TKG/scripts/getDependencies.pl -path ${env.LIB_DIR} -task default -customUrl ${customUrl}"
 				}
-				sh "perl ./aqa-tests/TKG/scripts/getDependencies.pl -path ${env.LIB_DIR} -task default -customUrl ${customUrl}"
+			} catch (Exception e) {
+					echo 'Exception: ' + e.toString()
+					echo "Cannot pre-stage test libs from ${env.LIB_DIR} on the machine. Skipping..."
 			}
- 		} catch (Exception e) {
-			echo 'Exception: ' + e.toString()
-			echo "Cannot pre-stage test libs from ${env.LIB_DIR} on the machine. Skipping..."
-		}
-
-		try {
-			if (env.BUILD_LIST.contains('system')) {
-				//get pre-staged test jars from systemtest.getDependency build before system test compilation
-				timeout(time: 60, unit: 'MINUTES') {
-					copyArtifacts fingerprintArtifacts: true, projectName: "systemtest.getDependency", selector: lastSuccessful(), target: 'aqa-tests'
-				}
-			}
-		} catch (Exception e) {
-			echo 'Exception: ' + e.toString()
-			echo 'Cannot run copyArtifacts from test.getDependency/systemtest.getDependency. Skipping copyArtifacts...'
-		}
 
 		if (BUILD_LIST.contains("external")){
 			try {
@@ -728,7 +726,8 @@ def runTest( ) {
 				env.SYSTEM_CUSTOM_TARGET=CUSTOM_TARGET
 			} else {
 				// remove suffix, then set CUSTOM_OPTION (i.e., jdk_custom_0 will become jdk_custom)
-				def removeSuffix = TARGET.replaceAll(/_\d+$/, "")
+				def removeDisabled = TARGET.replaceAll("disabled.", "")
+				def removeSuffix = removeDisabled.replaceAll(/_\d+$/, "")
 				CUSTOM_OPTION = "${removeSuffix.toUpperCase()}_TARGET='${CUSTOM_TARGET}'"
 			}
 		}
@@ -768,7 +767,12 @@ def runTest( ) {
 					echo "env.DISPLAY is ${env.DISPLAY}"
 					makeTest("${RUNTEST_CMD}")
 				}
-			} else {
+			} else if (BUILD_LIST.contains('external')) {
+				sshagent (credentials: ["$params.SSH_AGENT_CREDENTIAL"], ignoreMissing: true) {
+					makeTest("${RUNTEST_CMD}")
+				}
+			}
+			else {
 				makeTest("${RUNTEST_CMD}")
 			}
 		}
@@ -1014,10 +1018,10 @@ def testExecution() {
 def terminateTestProcesses() {
 	echo "PROCESSCATCH: Terminating any hung/left over test processes:"
 
-        def statusCode=sh(script:"aqa-tests/terminateTestProcesses.sh ${env.USER} 2>&1", returnStatus:true)
-        if (statusCode != 0) {
-                echo "rc = ${statusCode}, Unable to terminate all processes."
-        }
+	def statusCode=sh(script:"aqa-tests/terminateTestProcesses.sh ${env.USER} 2>&1", returnStatus:true)
+	if (statusCode != 0) {
+			echo "rc = ${statusCode}, Unable to terminate all processes."
+	}
 }
 
 def getJDKImpl(jvm_version) {
@@ -1055,12 +1059,22 @@ def getJenkinsDomain() {
 	return domainName
 }
 
+def getCustomUrl() {
+	def jenkinsDomain = getJenkinsDomain()
+	if (jenkinsDomain.contains("hyc-runtimes")) {
+		jenkinsDomain = "openj9-jenkins.osuosl.org"
+	}
+	def customUrl = "https://${jenkinsDomain}/job/test.getDependency/lastSuccessfulBuild/artifact/"
+	echo "Custom URL: ${customUrl}"
+	return customUrl
+}
+
 def archiveAQAvitFiles() {
 	if (params.USE_TESTENV_PROPERTIES && !JOB_NAME.contains("_testList_")) {
 		if (params.ARTIFACTORY_SERVER) {
 			def currentDate = new Date()
 			def currentDateTime = currentDate.format("yyyyMMddHHmmss", TimeZone.getTimeZone('UTC'))
-			def uploadDir = "AQAvit/${JDK_IMPL}/${ADOPTOPENJDK_BRANCH}/${JDK_VERSION}/${PLATFORM}/${currentDateTime}"
+			def uploadDir = "AQAvit/${JDK_IMPL}/${env.ADOPTOPENJDK_BRANCH}/${JDK_VERSION}/${PLATFORM}/${currentDateTime}"
 			uploadToArtifactory("${env.WORKSPACE}/**/*.tap", uploadDir)
 		}
 	}
@@ -1251,6 +1265,7 @@ def addFailedTestsGrinderLink(paths=""){
 		if (failedTestList) {
 			String failedTests = failedTestList.substring(0, failedTestList.length() - 1)
 			env.FAILED_TESTS= failedTests ?: ""
+			env.RERUN_TESTCASES=""
 			failedTestList = "testList+TESTLIST=" + failedTests
 			String url = env.RERUN_LINK
 			def failedTestUrl = url.replace(env.FAILED_TEST_TARGET, "TARGET=$failedTestList")
@@ -1271,6 +1286,17 @@ def addFailedTestsGrinderLink(paths=""){
 			}
 			if (jckDevtoolsFailedTestCaseList) {
 				customizedTestCases['jckdevtools'] = "${jckDevtoolsFailedTestCaseList}"
+			}
+			
+			if (customizedTestCases.size() == 1) {
+				def testCases=customizedTestCases.values().first()
+				def customTarget=customizedTestCases.keySet().first()
+				def testCaseSize=testCases.count(' ')
+				// Limitation of Header Fields https://github.com/adoptium/aqa-tests/issues/5241#issuecomment-2161927014
+				if (testCaseSize < 80) {
+					env.RERUN_CUSTOMTARGET="${customTarget}_custom"
+					env.RERUN_TESTCASES="${testCases}"
+				}
 			}
 			customizedTestCases.each { target, testcases ->
 				def tempTestCases = testcases.substring(0, testcases.length() - 1)
@@ -1327,7 +1353,21 @@ def triggerRerunJob () {
 						// set PARALLEL, NUM_MACHINES and TEST_TIME to default values
 						// set TARGET to failed tests and set ITERATIONS to rerunIterations
 						if (param.key == "TARGET") {
-							childParams << string(name: param.key, value: "testList TESTLIST=" + env.FAILED_TESTS)
+							if (env.RERUN_TESTCASES) {
+								childParams << string(name: param.key, value: env.RERUN_CUSTOMTARGET)
+							} else {
+								if (env.FAILED_TESTS.contains("_custom")) {
+									childParams << string(name: param.key, value: env.FAILED_TESTS)
+								} else {
+									childParams << string(name: param.key, value: "testList TESTLIST=" + env.FAILED_TESTS)
+								}
+							}
+						} else if (param.key == "CUSTOM_TARGET") {
+							if (env.RERUN_TESTCASES) {
+								childParams << string(name: param.key, value: env.RERUN_TESTCASES)
+							} else {
+								childParams << string(name: param.key, value: param.value.toString())
+							}
 						} else if (param.key == "PARALLEL") {
 							childParams << string(name: param.key, value: "None")
 						} else if (param.key == "NUM_MACHINES") {
@@ -1363,7 +1403,7 @@ def triggerRerunJob () {
 								echo 'Exception: ' + e.toString()
 								echo "Cannot copy *.tap from ${rerunJobName} with build id ${buildId} . Skipping copyArtifacts..."
 							}
-							
+
 							try {
 								step([$class: "TapPublisher", testResults: "${rerunJobName}/${buildId}/**/*.tap", outputTapToConsole: false, failIfNoResults: true])
 								archiveFile("${rerunJobName}/${buildId}/**/*.tap", true)
@@ -1372,7 +1412,7 @@ def triggerRerunJob () {
 								echo "Cannot archive tap files from ${rerunJobName} with build id ${buildId}. Exit ..."
 							}
 						}
-					
+
 					}
 				}
 			}
